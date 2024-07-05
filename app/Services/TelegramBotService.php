@@ -96,9 +96,6 @@ class TelegramBotService
         $boardId = config('trello.board_id');
         $inProgressCards = TrelloApiService::fetchInProgressCards($boardId);
 
-        // Log::alert($inProgressCards);
-        // return;
-
         $members = TrelloUser::with('user')->get();
 
         $report = [];
@@ -217,12 +214,11 @@ class TelegramBotService
         return $this->sendMessage($chatId, $message);
     }
 
-    public function sendMessage($chatId, $message, $reply = array())
+    public function sendMessage($chatId, $message)
     {
         $response = Http::post(config('telegram.api_url') . '/sendMessage', [
             'chat_id' => $chatId,
             'text' => $message,
-            // 'reply_markup' => json_encode($reply),
         ]);
 
         if ($response->failed()) {

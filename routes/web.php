@@ -1,5 +1,5 @@
 <?php
-use Illuminate\Support\Facades\Log;
+
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TelegramController;
@@ -25,8 +25,6 @@ Route::get('user/', function() {
 
     dd($response->json());
 });
-//     trello webhook "id": "668767e830e4ed2fb2a7e732",
-//     "idModel": "6685a215e5743e8940108aa5",
 
 // Route::get('/set-telegram-webhook', function () {
 //     $response = Http::post(config('telegram.api_url') . '/setWebhook', [
