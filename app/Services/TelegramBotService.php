@@ -14,9 +14,9 @@ class TelegramBotService
     ];
 
     const COMMANDS = [
-        'START' => '/start',
-        'LINK_TRELLO' => '/linkTrello',
-        'REPORT' => '/report',
+        'START' => '/start@TrelloTeamBot',
+        'LINK_TRELLO' => '/linktrello@TrelloTeamBot',
+        'REPORT' => '/report@TrelloTeamBot',
     ];
 
     public function handleCommand($data)
@@ -78,7 +78,7 @@ class TelegramBotService
     {
         $parts = explode(' ', $text);
         $username = isset($parts[1]) ? $parts[1] : null;
-
+ 
         if (!$username) {
             $this->sendMessage(
                 $chatId,
@@ -155,6 +155,7 @@ class TelegramBotService
 
     private function getTrelloMemberData($trelloUsername)
     {
+        if ($trelloUsername == "username") return null;
         $response = Http::get(config('trello.api_url') . "members/{$trelloUsername}", [
             'fields' => 'id,username,idBoards',
             'key' => config('trello.key'),
