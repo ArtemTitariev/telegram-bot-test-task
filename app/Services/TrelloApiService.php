@@ -71,4 +71,48 @@ class TrelloApiService
             'to' => $to,
         ]);
     }
+
+    public static function fetchInProgressCards($boardId) {      
+        $response = Http::get(config('trello.api_url') . "boards/{$boardId}/cards", [
+            'key' => config('trello.key'),
+            'token' => config('trello.token'),
+        ]);
+
+        if ($response->failed()) {
+            Log::error('Помилка отримання карток з Trello: ' . $response->body());
+            return [];
+        }
+        
+        $cards = $response->json();
+
+        $inProgressCards = array_filter($cards, function ($card) {
+            $listId = $card['idList'];
+            return static::isInProgressList($listId);
+        });
+        
+        $result = array_map(function ($card) {
+            return [
+                'name' => $card['name'],
+                'members' => $card['idMembers']
+            ];
+        }, $inProgressCards);
+
+        return $result;
+    }
+
+    private static function isInProgressList($listId)
+    {
+        $response = Http::get(config('trello.api_url') . "lists/{$listId}", [
+            'key' => config('trello.key'),
+            'token' => config('trello.token'),
+        ]);
+
+        if ($response->failed()) {
+            Log::error('Помилка отримання деталей списку з Trello: ' . $response->body());
+            return false;
+        }
+
+        $list = $response->json();
+        return $list['name'] === static::CARDS['IN_PROGRESS'];
+    }
 }
