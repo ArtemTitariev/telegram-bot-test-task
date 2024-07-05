@@ -4,26 +4,33 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class TelegramBotService
 {
+    const CHAT_TYPES = [
+        'PRIVATE' => 'private',
+    ];
+
+    const COMMANDS = [
+        'START' => '/start',
+    ];
+
     public function handleCommand($data)
     {
         $chat = $data['message']['chat'];
         
-        if ($chat['type'] === 'private') {
-            $this->sendMessageToUser(
-                $chat['id'], 
-                "Вибачте, але мене можна використовувати лише в групових чатах."
+        if ($chat['type'] === self::CHAT_TYPES["PRIVATE"]) {
+            $this->sendMessage(
+                $chat['id'],
+                __('Вибачте, але мене можна використовувати лише в групових чатах.')
             );
             return;
         }
-        
+
         $text = $data['message']['text'];
-
-
         switch ($text) {
-            case '/start':
+            case self::COMMANDS["START"]:
                 $from = $data['message']['from'];
                 return $this->handleStartCommand($chat['id'], $from);
 
@@ -43,19 +50,19 @@ class TelegramBotService
                 'username' => $from['username'] ?? null,
             ]
         );
-        
-        $message = 'Вітаю, ' . $user->fullName . '!';
 
-        return $this->sendMessageToUser($chatId, $message);
+        $message = sprintf(__('Вітаю, %s!'), $user->fullName);
+
+        return $this->sendMessage($chatId, $message);
     }
 
     protected function handleDefaultMessage($chatId)
     {
-        $message = 'Я не розумію вашої команди.';
-        return $this->sendMessageToUser($chatId, $message);
+        $message = __('Я не розумію вашої команди.');
+        return $this->sendMessage($chatId, $message);
     }
 
-    protected function sendMessageToUser($chatId, $message)
+    public function sendMessage($chatId, $message)
     {
         $response = Http::post(config('telegram.api_url') . '/sendMessage', [
             'chat_id' => $chatId,
@@ -63,15 +70,12 @@ class TelegramBotService
         ]);
 
         if ($response->failed()) {
-            // Обробка 
+            Log::error('Помилка відправки повідомлення в Telegram: ' .
+                $response->body());
+
             return false;
         }
 
         return true;
     }
-
-
-
-
-
 }

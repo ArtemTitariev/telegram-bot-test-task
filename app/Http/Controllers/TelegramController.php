@@ -20,17 +20,9 @@ class TelegramController extends Controller
 
     public function handleWebhook(Request $request)
     {   
-        Log::info('-----Received webhook request from Telegram:------');
-
         $data = $request->all();
-        // Log::info($data);
-        // message->chat->type= private || group
 
         if (isset($data['message'])) {
-            // $chatId = $data['message']['chat']['id'];
-            // $text = $data['message']['text'];
-
-            // Обробка команди через сервіс
             $this->telegramBotService->handleCommand($data);
         }
 
