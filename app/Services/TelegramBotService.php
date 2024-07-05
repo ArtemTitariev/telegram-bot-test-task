@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Models\TrelloUser;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -14,6 +15,7 @@ class TelegramBotService
 
     const COMMANDS = [
         'START' => '/start',
+        'LINK_TRELLO' => '/linkTrello',
     ];
 
     public function handleCommand($data)
@@ -33,7 +35,13 @@ class TelegramBotService
             case self::COMMANDS["START"]:
                 $from = $data['message']['from'];
                 return $this->handleStartCommand($chat['id'], $from);
-
+            
+            case (strpos($text, self::COMMANDS['LINK_TRELLO']) === 0):
+                // $from = config('telegram.group_id');
+                $from = $data['message']['from'];
+                return $this->handleLinkTrelloCommand($chat['id'], $from, $text);
+            
+            
             default:
                 return $this->handleDefaultMessage($chat['id']);
         }
@@ -56,17 +64,120 @@ class TelegramBotService
         return $this->sendMessage($chatId, $message);
     }
 
+    protected function handleLinkTrelloCommand($chatId, $from, $text)
+    {
+        $parts = explode(' ', $text);
+        $username = isset($parts[1]) ? $parts[1] : null;
+
+        if (!$username) {
+            $this->sendMessage(
+                $chatId,
+                __("Не вказано username для зв'язку з Trello.")
+            );
+
+            return false;
+        }
+        
+        $this->linkTrello($chatId, $from['id'], $username);
+        
+    }
+
+    public function linkTrello($chatId, $telegramUserId, $trelloUsername)
+    {
+        $memberData = $this->getTrelloMemberData($trelloUsername);
+    
+        if ($memberData) {
+            if ($this->isMemberOfBoard($memberData['idBoards'], config('trello.board_id'))) {
+                $trelloUser = TrelloUser::firstOrCreate(
+                    ['trello_id' => $memberData['id']],
+                    [
+                        'trello_id' => $memberData['id'],
+                        'username' => $memberData['username'],
+                    ]
+                );
+                
+               
+                $user = User::where('telegram_id', $telegramUserId)->first();
+    
+                if ($user) {
+                    $this->linkUserToTrello($user, $trelloUser, $chatId);
+                } else {
+                    $this->sendMessage($chatId, __("Користувач Telegram не знайдений!"));
+                }
+            } else {
+                $this->sendMessage($chatId, sprintf(__("Учасника дошки зі username %s не знайдено."), $memberData['username']));
+            }
+        } else {
+            $this->sendMessage($chatId, __("Користувача Trello зі вказаним username не знайдено"));
+        }
+    }
+    
+    private function getTrelloMemberData($trelloUsername)
+    {
+        $response = Http::get(config('trello.api_url') . "members/{$trelloUsername}", [
+            'fields' => 'id,username,idBoards',
+            'key' => config('trello.key'),
+            'token' => config('trello.token'),
+        ]);
+    
+        return $response->successful() ? $response->json() : null;
+    }
+    
+    private function isMemberOfBoard(array $idBoards, $boardId)
+    {
+        return in_array($boardId, $idBoards);
+    }
+    
+    private function linkUserToTrello(User $user, TrelloUser $trelloUser, $chatId)
+    {
+        if (!$user->trello_user_id) {
+            $user->trelloUser()->associate($trelloUser);
+            $user->save();
+            $this->sendMessage($chatId, sprintf(__("Обліковий запис Trello %s успішно прив'язаний!"), $trelloUser->username));
+        } else {
+            $this->sendMessage($chatId, sprintf(__("Обліковий запис Trello %s вже прив'язаний!"), $trelloUser->username));
+        }
+
+        $this->checkPM($user, $trelloUser);
+    }
+
+    private function checkPM(User $user, TrelloUser $trelloUser) {
+        $boardId = config('trello.board_id');
+
+        $response = Http::get(config('trello.api_url') . "boards/{$boardId}/memberships", [
+            'key' => config('trello.key'),
+            'token' => config('trello.token'),
+            'filter' => 'admin',
+        ]);
+
+        if ($response->successful()) {
+            $members = $response->json();
+            foreach ($members as $member) {
+                if ($member['idMember'] === $trelloUser->trello_id && $member['memberType'] === 'admin') {
+                    $user->is_pm = true;
+                    $user->save();
+
+                    return true;
+                }
+            }
+        
+            return false;
+        }
+    }
+    
+
     protected function handleDefaultMessage($chatId)
     {
         $message = __('Я не розумію вашої команди.');
         return $this->sendMessage($chatId, $message);
     }
 
-    public function sendMessage($chatId, $message)
+    public function sendMessage($chatId, $message, $reply = array())
     {
         $response = Http::post(config('telegram.api_url') . '/sendMessage', [
             'chat_id' => $chatId,
             'text' => $message,
+            // 'reply_markup' => json_encode($reply),
         ]);
 
         if ($response->failed()) {

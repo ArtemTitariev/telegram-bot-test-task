@@ -14,6 +14,17 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+Route::get('user/', function() {
+    $username = 'artemtitariev1';
+    
+    $response = Http::get(config('trello.api_url'). "members/{$username}", [
+        'fields' => 'id,username,idBoards',
+        'key' => config('trello.key'),
+        'token' => config('trello.token'),
+    ]);
+
+    dd($response->json());
+});
 //     trello webhook "id": "668767e830e4ed2fb2a7e732",
 //     "idModel": "6685a215e5743e8940108aa5",
 

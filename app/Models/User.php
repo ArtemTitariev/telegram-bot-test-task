@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -23,6 +24,7 @@ class User extends Authenticatable
         'last_name',
         'username',
         'is_pm',
+        'trello_user_id',
     ];
 
     /**
@@ -53,5 +55,10 @@ class User extends Authenticatable
         $fullName .= $this->username ? ' (@' . $this->username . ')' : '';
 
         return $fullName;
+    }
+
+    public function trelloUser(): BelongsTo
+    {
+        return $this->belongsTo(TrelloUser::class, 'trello_user_id');
     }
 }
