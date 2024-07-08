@@ -44,7 +44,7 @@ class TelegramBotService
 
             case self::COMMANDS['REPORT']:
                 $user = User::where('telegram_id', $from['id'])->first();
-                if ($user->is_pm) {
+                if ($user && $user->is_pm) {
                     return $this->handleReportCommand($chatId);
                 } else {
                     return $this->sendMessage(
